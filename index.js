@@ -1,10 +1,20 @@
 const express = require('express');
 const axios = require('axios');
+const cors = require('cors');
 
 const API_BASE_URL = process.env.API_BASE_URL || 'https://data.haute-garonne.fr/api/explore/v2.1';
 
 // Create Express app
 const app = express();
+
+// Add CORS middleware - place this BEFORE express.json()
+app.use(cors({
+  origin: '*',  // Allow all origins (or specify ChatGPT's origin if known)
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: false
+}));
+
 app.use(express.json());
 
 // Cache for dataset catalog
@@ -567,6 +577,14 @@ async function handleMcpRequest(req, res) {
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', service: 'haute-garonne-mcp-server' });
+});
+
+// MCP endpoint - add OPTIONS handler for CORS preflight
+app.options('/mcp', (req, res) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.sendStatus(200);
 });
 
 // MCP endpoint
