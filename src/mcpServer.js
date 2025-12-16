@@ -39,14 +39,19 @@ async function getDatasetCatalog() {
   }
 
   try {
+    // API only accepts limit between -1 and 100, use 100 to get maximum results
     const response = await axios.get(`${API_BASE_URL}/catalog/datasets`, {
-      params: { limit: 1000 },
+      params: { limit: 100 },
     });
     datasetCatalogCache = response.data;
     cacheTimestamp = now;
     return datasetCatalogCache;
   } catch (error) {
     console.error('Error fetching dataset catalog:', error.message);
+    if (error.response) {
+      console.error('API Response status:', error.response.status);
+      console.error('API Response data:', error.response.data);
+    }
     throw new Error(`Failed to fetch dataset catalog: ${error.message}`);
   }
 }
