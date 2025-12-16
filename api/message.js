@@ -4,8 +4,13 @@
 const handler = require('../src/httpServer.js');
 
 module.exports = async function(req, res) {
-  // Set the URL to /message
+  // Override the URL to /message for this specific route
+  const originalUrl = req.url;
   req.url = '/message';
-  return handler(req, res);
+  try {
+    return await handler(req, res);
+  } finally {
+    req.url = originalUrl; // Restore original URL
+  }
 };
 
