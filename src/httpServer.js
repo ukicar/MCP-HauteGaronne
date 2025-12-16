@@ -161,12 +161,20 @@ async function handler(req, res) {
 
           console.log(`[HTTP] JSON-RPC method: ${request.method}, id: ${request.id}`);
 
+          // Check if this is a notification (no id field)
+          const isNotification = request.id === undefined || request.id === null;
+          
           // Call the handler directly (bypassing transport)
           let response;
           try {
             response = await Promise.resolve(
               handleRequestDirectly(server, request.method, request.params)
             ).catch((error) => {
+              // For notifications, ignore errors (they don't need responses anyway)
+              if (isNotification) {
+                console.log(`[HTTP] Ignoring error for notification ${request.method}:`, error.message);
+                return null;
+              }
               console.error(
                 `[HTTP] Promise rejection in handleRequestDirectly:`,
                 error instanceof Error ? error.message : String(error)
@@ -178,6 +186,17 @@ async function handler(req, res) {
               throw error;
             });
           } catch (error) {
+            // For notifications, ignore errors (they don't need responses)
+            if (isNotification) {
+              console.log(`[HTTP] Ignoring error for notification ${request.method}:`, error.message);
+              if (!res.headersSent) {
+                res.setHeader('Access-Control-Allow-Origin', '*');
+                res.writeHead(204); // No Content
+                res.end();
+              }
+              return;
+            }
+            
             console.error(
               `[HTTP] Error in handleRequestDirectly:`,
               error instanceof Error ? error.message : String(error)
@@ -345,7 +364,11 @@ async function handler(req, res) {
       res.setHeader('Content-Type', 'application/json');
       res.setHeader('Access-Control-Allow-Origin', '*');
       res.writeHead(500);
-      res.end(JSON.stringify({ error: 'Internal server error' }));
+      res.end(JSON.stringify({ 
+        error: 'Internal server error',
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined
+      }));
     }
   }
 }

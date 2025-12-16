@@ -3,7 +3,14 @@
  */
 
 const { Server } = require('@modelcontextprotocol/sdk/server/index.js');
-const { ListToolsRequestSchema, CallToolRequestSchema } = require('@modelcontextprotocol/sdk/types.js');
+const { 
+  ListToolsRequestSchema, 
+  CallToolRequestSchema,
+  ListResourcesRequestSchema,
+  ReadResourceRequestSchema,
+  ListPromptsRequestSchema,
+  GetPromptRequestSchema
+} = require('@modelcontextprotocol/sdk/types.js');
 const axios = require('axios');
 
 const API_BASE_URL = process.env.API_BASE_URL || 'https://data.haute-garonne.fr/api/explore/v2.1';
@@ -278,7 +285,7 @@ async function createMCPServer() {
   );
 
   // Register resources/list handler
-  server.setRequestHandler('resources/list', async () => {
+  server.setRequestHandler(ListResourcesRequestSchema, async () => {
     try {
       const catalog = await getDatasetCatalog();
       const datasets = catalog.datasets || [];
@@ -306,7 +313,7 @@ async function createMCPServer() {
   });
 
   // Register resources/read handler
-  server.setRequestHandler('resources/read', async (request) => {
+  server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
     const { uri } = request.params;
 
     try {
@@ -355,7 +362,7 @@ async function createMCPServer() {
   });
 
   // Register prompts/list handler
-  server.setRequestHandler('prompts/list', async () => {
+  server.setRequestHandler(ListPromptsRequestSchema, async () => {
     return {
       prompts: [
         {
@@ -385,7 +392,7 @@ async function createMCPServer() {
   });
 
   // Register prompts/get handler
-  server.setRequestHandler('prompts/get', async (request) => {
+  server.setRequestHandler(GetPromptRequestSchema, async (request) => {
     const { name, arguments: args } = request.params;
 
     try {
@@ -539,6 +546,14 @@ async function handleRequestDirectly(server, method, params) {
   } else if (method === 'notifications/initialized') {
     // Notification - no response needed (return null)
     console.log('[MCP] Received initialized notification');
+    return null;
+  } else if (method === 'notifications/cancelled') {
+    // Notification - no response needed (return null)
+    console.log('[MCP] Received cancelled notification');
+    return null;
+  } else if (method.startsWith('notifications/')) {
+    // Handle any other notifications gracefully
+    console.log(`[MCP] Received notification: ${method}`);
     return null;
   } else if (method === 'tools/list') {
     const handler = server._requestHandlers?.get('tools/list');
