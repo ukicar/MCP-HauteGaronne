@@ -191,7 +191,7 @@ async function createMCPServer() {
             const limit = args.limit || 100;
             const offset = args.offset || 0;
             const catalog = await getDatasetCatalog();
-            const datasets = catalog.datasets || [];
+            const datasets = catalog.results || catalog.datasets || [];
             const paginated = datasets.slice(offset, offset + limit);
 
             result = {
@@ -244,7 +244,7 @@ async function createMCPServer() {
             }
 
             const catalog = await getDatasetCatalog();
-            const datasets = catalog.datasets || [];
+            const datasets = catalog.results || catalog.datasets || [];
             const searchLower = query.toLowerCase();
             const filtered = datasets
               .filter((ds) => {
@@ -308,7 +308,7 @@ async function createMCPServer() {
   server.setRequestHandler(schemas.ListResourcesRequestSchema, async () => {
     try {
       const catalog = await getDatasetCatalog();
-      const datasets = catalog.datasets || [];
+      const datasets = catalog.results || catalog.datasets || [];
 
       const resources = [
         {
@@ -420,7 +420,7 @@ async function createMCPServer() {
         case 'find_cultural_sites': {
           const location = args?.location || '';
           const catalog = await getDatasetCatalog();
-          const datasets = catalog.datasets || [];
+          const datasets = catalog.results || catalog.datasets || [];
           const culturalDatasets = datasets.filter((ds) => {
             const title = (ds.metas?.default?.title || '').toLowerCase();
             const desc = (ds.metas?.default?.description || '').toLowerCase();
@@ -471,7 +471,7 @@ async function createMCPServer() {
         case 'search_transportation_data': {
           const transportType = args?.transport_type || '';
           const catalog = await getDatasetCatalog();
-          const datasets = catalog.datasets || [];
+          const datasets = catalog.results || catalog.datasets || [];
           const transportDatasets = datasets.filter((ds) => {
             const title = (ds.metas?.default?.title || '').toLowerCase();
             const desc = (ds.metas?.default?.description || '').toLowerCase();
