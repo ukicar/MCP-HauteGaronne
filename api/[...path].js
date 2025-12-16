@@ -4,7 +4,7 @@
  */
 const handler = require('../src/httpServer.js');
 
-module.exports = async function vercelHandler(req, res) {
+module.exports = async function(req, res) {
   // Reconstruct the URL path from Vercel's path parameter
   // The [...path] catch-all receives path segments as req.query.path
   const pathSegments = req.query.path;
