@@ -2,13 +2,12 @@
   "name": "mcp-haute-garonne",
   "version": "1.0.0",
   "description": "MCP server for Haute Garonne Open Data API",
-  "main": "index.js",
   "type": "commonjs",
   "engines": {
     "node": ">=18.0.0"
   },
+  "main": "index.js",
   "scripts": {
-    "start": "node index.js",
     "vercel": "vercel"
   },
   "keywords": [
