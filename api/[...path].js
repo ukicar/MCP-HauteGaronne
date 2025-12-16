@@ -13,23 +13,23 @@ module.exports = async function vercelHandler(req, res) {
   // If path segments exist, reconstruct the URL
   if (pathSegments) {
     if (Array.isArray(pathSegments)) {
-      // Multiple path segments: ['message'] or ['api', 'message']
-      url = '/' + pathSegments.join('/');
+      // Multiple path segments: ['message'] 
+      // Remove 'api' if it's the first segment (from rewrite)
+      const segments = pathSegments.filter(s => s !== 'api');
+      url = '/' + segments.join('/');
     } else if (typeof pathSegments === 'string') {
       // Single path segment: 'message'
       url = '/' + pathSegments;
     }
-  } else {
-    // No path segments means root path
-    url = '/';
   }
 
-  // Remove any query string that might be in the original req.url
-  // Vercel sometimes includes ?path=... in req.url
+  // Also check req.url - Vercel might set it directly
   if (req.url) {
     const urlWithoutQuery = req.url.split('?')[0];
-    // If req.url already has a path, use it (but clean it)
-    if (urlWithoutQuery && urlWithoutQuery !== '/api' && urlWithoutQuery !== '/api/') {
+    // Remove /api prefix if present (from rewrite)
+    if (urlWithoutQuery.startsWith('/api/')) {
+      url = urlWithoutQuery.replace('/api', '');
+    } else if (urlWithoutQuery !== '/api' && urlWithoutQuery !== '/api/') {
       url = urlWithoutQuery;
     }
   }
@@ -43,7 +43,7 @@ module.exports = async function vercelHandler(req, res) {
   req.url = url;
 
   // Log for debugging
-  console.log(`[VERCEL] Reconstructed URL: ${url} from path segments:`, pathSegments);
+  console.log(`[VERCEL] Reconstructed URL: ${url} from path segments:`, pathSegments, `req.url:`, req.url);
 
   // Call the original handler
   return handler(req, res);
