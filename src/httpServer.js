@@ -2,9 +2,22 @@
  * HTTP server for MCP over HTTP (Vercel deployment)
  */
 
-const { Server } = require('@modelcontextprotocol/sdk/server/index.js');
-const { SSEServerTransport } = require('@modelcontextprotocol/sdk/server/sse.js');
-const { createMCPServer, handleRequestDirectly } = require('./mcpServer.js');
+// Dynamic imports for ES modules
+let Server, SSEServerTransport;
+let mcpServerModule = null;
+
+async function loadMCPModules() {
+  if (!Server) {
+    const sdkServer = await import('@modelcontextprotocol/sdk/server/index.js');
+    const sdkSSE = await import('@modelcontextprotocol/sdk/server/sse.js');
+    Server = sdkServer.Server;
+    SSEServerTransport = sdkSSE.SSEServerTransport;
+  }
+  if (!mcpServerModule) {
+    mcpServerModule = require('./mcpServer.js');
+  }
+  return { Server, SSEServerTransport, mcpServerModule };
+}
 
 let serverInstance = null;
 
@@ -16,7 +29,8 @@ const activeTransports = new Map();
  */
 async function getServer() {
   if (!serverInstance) {
-    serverInstance = await createMCPServer();
+    const { mcpServerModule } = await loadMCPModules();
+    serverInstance = await mcpServerModule.createMCPServer();
   }
   return serverInstance;
 }
@@ -41,6 +55,9 @@ async function handler(req, res) {
   }
 
   try {
+    // Load MCP modules
+    const { SSEServerTransport, mcpServerModule } = await loadMCPModules();
+    
     console.log('[HTTP] Getting MCP server instance...');
     const server = await getServer();
     console.log('[HTTP] MCP server instance ready');
@@ -167,8 +184,9 @@ async function handler(req, res) {
           // Call the handler directly (bypassing transport)
           let response;
           try {
+            const { mcpServerModule } = await loadMCPModules();
             response = await Promise.resolve(
-              handleRequestDirectly(server, request.method, request.params)
+              mcpServerModule.handleRequestDirectly(server, request.method, request.params)
             ).catch((error) => {
               // For notifications, ignore errors (they don't need responses anyway)
               if (isNotification) {

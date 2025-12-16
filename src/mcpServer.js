@@ -2,15 +2,26 @@
  * MCP Server initialization and tool registration
  */
 
-const { Server } = require('@modelcontextprotocol/sdk/server/index.js');
-const { 
-  ListToolsRequestSchema, 
-  CallToolRequestSchema,
-  ListResourcesRequestSchema,
-  ReadResourceRequestSchema,
-  ListPromptsRequestSchema,
-  GetPromptRequestSchema
-} = require('@modelcontextprotocol/sdk/types.js');
+// Dynamic imports for ES modules
+let Server, ListToolsRequestSchema, CallToolRequestSchema, ListResourcesRequestSchema, 
+    ReadResourceRequestSchema, ListPromptsRequestSchema, GetPromptRequestSchema;
+
+async function loadSDKModules() {
+  if (!Server) {
+    const sdkServer = await import('@modelcontextprotocol/sdk/server/index.js');
+    const sdkTypes = await import('@modelcontextprotocol/sdk/types.js');
+    Server = sdkServer.Server;
+    ListToolsRequestSchema = sdkTypes.ListToolsRequestSchema;
+    CallToolRequestSchema = sdkTypes.CallToolRequestSchema;
+    ListResourcesRequestSchema = sdkTypes.ListResourcesRequestSchema;
+    ReadResourceRequestSchema = sdkTypes.ReadResourceRequestSchema;
+    ListPromptsRequestSchema = sdkTypes.ListPromptsRequestSchema;
+    GetPromptRequestSchema = sdkTypes.GetPromptRequestSchema;
+  }
+  return { Server, ListToolsRequestSchema, CallToolRequestSchema, ListResourcesRequestSchema, 
+           ReadResourceRequestSchema, ListPromptsRequestSchema, GetPromptRequestSchema };
+}
+
 const axios = require('axios');
 
 const API_BASE_URL = process.env.API_BASE_URL || 'https://data.haute-garonne.fr/api/explore/v2.1';
@@ -44,7 +55,8 @@ async function getDatasetCatalog() {
  * Initialize and configure MCP server
  */
 async function createMCPServer() {
-  const server = new Server(
+  const { Server: ServerClass } = await loadSDKModules();
+  const server = new ServerClass(
     {
       name: 'haute-garonne-mcp-server',
       version: '1.0.0',
@@ -58,9 +70,12 @@ async function createMCPServer() {
     }
   );
 
+  // Load SDK modules
+  const schemas = await loadSDKModules();
+  
   // Register tools/list handler
   server.setRequestHandler(
-    ListToolsRequestSchema,
+    schemas.ListToolsRequestSchema,
     async () => {
       console.log('[TOOL] tools/list requested');
       return {
@@ -156,7 +171,7 @@ async function createMCPServer() {
 
   // Register tools/call handler
   server.setRequestHandler(
-    CallToolRequestSchema,
+    schemas.CallToolRequestSchema,
     async (request) => {
       console.log(`[TOOL] Tool call requested: ${request.params.name}`);
       console.log(`[TOOL] Tool arguments: ${JSON.stringify(request.params.arguments, null, 2)}`);
@@ -285,7 +300,7 @@ async function createMCPServer() {
   );
 
   // Register resources/list handler
-  server.setRequestHandler(ListResourcesRequestSchema, async () => {
+  server.setRequestHandler(schemas.ListResourcesRequestSchema, async () => {
     try {
       const catalog = await getDatasetCatalog();
       const datasets = catalog.datasets || [];
@@ -313,7 +328,7 @@ async function createMCPServer() {
   });
 
   // Register resources/read handler
-  server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
+  server.setRequestHandler(schemas.ReadResourceRequestSchema, async (request) => {
     const { uri } = request.params;
 
     try {
@@ -362,7 +377,7 @@ async function createMCPServer() {
   });
 
   // Register prompts/list handler
-  server.setRequestHandler(ListPromptsRequestSchema, async () => {
+  server.setRequestHandler(schemas.ListPromptsRequestSchema, async () => {
     return {
       prompts: [
         {
@@ -392,7 +407,7 @@ async function createMCPServer() {
   });
 
   // Register prompts/get handler
-  server.setRequestHandler(GetPromptRequestSchema, async (request) => {
+  server.setRequestHandler(schemas.GetPromptRequestSchema, async (request) => {
     const { name, arguments: args } = request.params;
 
     try {
