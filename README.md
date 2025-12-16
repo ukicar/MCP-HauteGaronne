@@ -42,7 +42,9 @@ The server will be automatically configured for Vercel deployment via `vercel.js
 
 - `GET /` - Server information
 - `GET /health` - Health check endpoint
-- `POST /mcp` - MCP protocol endpoint
+- `POST /mcp` - MCP protocol endpoint (JSON-RPC over HTTP)
+- `GET /sse` - MCP protocol endpoint (Server-Sent Events) - for LM Studio and other SSE clients
+- `POST /sse` - Send messages to SSE endpoint
 
 ## MCP Tools
 

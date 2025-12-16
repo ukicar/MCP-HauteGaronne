@@ -579,6 +579,181 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', service: 'haute-garonne-mcp-server' });
 });
 
+// Store active SSE connections for message routing
+const sseConnections = new Map();
+
+// SSE endpoint for MCP (Server-Sent Events)
+app.get('/sse', (req, res) => {
+  // Set SSE headers
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Headers', 'Cache-Control');
+
+  // Generate connection ID
+  const connectionId = `conn_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  sseConnections.set(connectionId, res);
+
+  // Send initial connection message
+  res.write(`data: ${JSON.stringify({ type: 'connection', status: 'connected', id: connectionId })}\n\n`);
+
+  // Keep connection alive with periodic ping
+  const keepAlive = setInterval(() => {
+    try {
+      res.write(': ping\n\n');
+    } catch (error) {
+      clearInterval(keepAlive);
+      sseConnections.delete(connectionId);
+    }
+  }, 30000);
+
+  // Handle client disconnect
+  req.on('close', () => {
+    clearInterval(keepAlive);
+    sseConnections.delete(connectionId);
+    res.end();
+  });
+
+  // Handle errors
+  res.on('error', () => {
+    clearInterval(keepAlive);
+    sseConnections.delete(connectionId);
+  });
+});
+
+// POST endpoint for SSE (for sending messages to active SSE connections)
+app.post('/sse', express.json(), async (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  
+  try {
+    const message = req.body;
+    const { method, params, id, connectionId } = message;
+
+    // If connectionId is provided, send response via that SSE connection
+    if (connectionId && sseConnections.has(connectionId)) {
+      const sseRes = sseConnections.get(connectionId);
+      
+      let result;
+      try {
+        switch (method) {
+          case 'initialize':
+            result = await handleInitialize(params || {});
+            break;
+          case 'tools/list':
+            result = await handleToolsList();
+            break;
+          case 'tools/call':
+            result = await handleToolsCall(params || {});
+            break;
+          case 'resources/list':
+            result = await handleResourcesList();
+            break;
+          case 'resources/read':
+            result = await handleResourcesRead(params || {});
+            break;
+          case 'prompts/list':
+            result = await handlePromptsList();
+            break;
+          case 'prompts/get':
+            result = await handlePromptsGet(params || {});
+            break;
+          default:
+            result = {
+              error: {
+                code: -32601,
+                message: `Method not found: ${method}`,
+              },
+            };
+        }
+
+        const response = {
+          jsonrpc: '2.0',
+          id: id || null,
+          result: result.error ? undefined : result,
+          error: result.error || undefined,
+        };
+        
+        sseRes.write(`data: ${JSON.stringify(response)}\n\n`);
+        res.json({ status: 'sent' });
+      } catch (error) {
+        const errorResponse = {
+          jsonrpc: '2.0',
+          id: id || null,
+          error: {
+            code: -32603,
+            message: error.message || 'Internal error',
+          },
+        };
+        sseRes.write(`data: ${JSON.stringify(errorResponse)}\n\n`);
+        res.json({ status: 'error', message: error.message });
+      }
+    } else {
+      // No active SSE connection, respond directly via HTTP
+      let result;
+      switch (method) {
+        case 'initialize':
+          result = await handleInitialize(params || {});
+          break;
+        case 'tools/list':
+          result = await handleToolsList();
+          break;
+        case 'tools/call':
+          result = await handleToolsCall(params || {});
+          break;
+        case 'resources/list':
+          result = await handleResourcesList();
+          break;
+        case 'resources/read':
+          result = await handleResourcesRead(params || {});
+          break;
+        case 'prompts/list':
+          result = await handlePromptsList();
+          break;
+        case 'prompts/get':
+          result = await handlePromptsGet(params || {});
+          break;
+        default:
+          res.status(400).json({
+            jsonrpc: '2.0',
+            id: id || null,
+            error: {
+              code: -32601,
+              message: `Method not found: ${method}`,
+            },
+          });
+          return;
+      }
+
+      res.json({
+        jsonrpc: '2.0',
+        id: id || null,
+        result,
+      });
+    }
+  } catch (error) {
+    console.error('SSE POST error:', error);
+    res.status(500).json({
+      jsonrpc: '2.0',
+      id: req.body?.id || null,
+      error: {
+        code: -32603,
+        message: error.message || 'Internal error',
+      },
+    });
+  }
+});
+
+// OPTIONS handler for SSE
+app.options('/sse', (req, res) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Cache-Control');
+  res.sendStatus(200);
+});
+
 // MCP endpoint - add OPTIONS handler for CORS preflight
 app.options('/mcp', (req, res) => {
   res.header('Access-Control-Allow-Origin', '*');
@@ -598,6 +773,7 @@ app.get('/', (req, res) => {
     endpoints: {
       health: '/health',
       mcp: '/mcp',
+      sse: '/sse',
     },
     documentation: 'https://github.com/modelcontextprotocol/specification',
   });
