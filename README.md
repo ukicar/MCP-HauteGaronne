@@ -16,11 +16,14 @@ npm install
 
 ## Local Development
 
+For local testing, you can use Vercel's dev server:
+
 ```bash
-npm start
+npm install -g vercel
+vercel dev
 ```
 
-The server will start on `http://localhost:3000`
+Or test the handler directly using Node.js (requires setting up a simple HTTP server).
 
 ## Deployment on Vercel
 
@@ -38,13 +41,21 @@ The server will start on `http://localhost:3000`
 
 The server will be automatically configured for Vercel deployment via `vercel.json`.
 
+## Client Configuration
+
+### ChatGPT
+Use the MCP Server URL: `https://mcp-haute-garonne.vercel.app/message`
+
+### LM Studio
+Use the MCP Server URL: `https://mcp-haute-garonne.vercel.app/message`
+
+The server automatically handles both stateless POST requests (for ChatGPT) and SSE connections (for LM Studio) on the same `/message` endpoint.
+
 ## API Endpoints
 
-- `GET /` - Server information
-- `GET /health` - Health check endpoint
-- `POST /mcp` - MCP protocol endpoint (JSON-RPC over HTTP)
-- `GET /sse` - MCP protocol endpoint (Server-Sent Events) - for LM Studio and other SSE clients
-- `POST /sse` - Send messages to SSE endpoint
+- `GET /message` - MCP protocol endpoint (Server-Sent Events) - for LM Studio and other SSE clients
+- `POST /message` - MCP protocol endpoint (JSON-RPC over HTTP) - for ChatGPT and other HTTP clients
+- `GET /ping` - Health check endpoint
 
 ## MCP Tools
 
