@@ -72,11 +72,8 @@ async function handler(req, res) {
 
       console.log('[HTTP] Creating SSEServerTransport...');
       const transport = new SSEServerTransport('/message', res);
-      console.log('[HTTP] Connecting server to transport...');
-      // Note: server.connect() automatically calls transport.start()
-      await server.connect(transport);
-
-      // Store transport by session ID for POST requests
+      
+      // Store transport by session ID for POST requests (get it before connecting)
       const sessionId = transport.sessionId;
       activeTransports.set(sessionId, transport);
       console.log(
@@ -93,9 +90,19 @@ async function handler(req, res) {
 
       transport.onerror = (error) => {
         console.error(`[HTTP] Transport error for session ${sessionId}:`, error);
+        activeTransports.delete(sessionId);
       };
 
+      console.log('[HTTP] Connecting server to transport...');
+      // Note: server.connect() automatically calls transport.start()
+      // Don't await - let it run in background, function will return and connection stays open
+      server.connect(transport).catch((error) => {
+        console.error(`[HTTP] Error connecting server to transport:`, error);
+        activeTransports.delete(sessionId);
+      });
+
       console.log(`[HTTP] MCP Server connected via HTTP/SSE (GET), session: ${sessionId}`);
+      // Function returns here, but connection stays open via transport
       return;
     }
 
